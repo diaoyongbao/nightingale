@@ -96,7 +96,18 @@ ops:
       cname: Host - Delete
     - name: /targets/bind
       cname: Host - Bind Uncategorized
-
+- name: AIops
+  cname: AI Operations
+  ops:
+    - name: /aiops/mcp
+      cname: MCP Management
+    - name: /aiops/chat
+      cname: AI Chat
+- name: dbmanager
+  cname: Database Manager
+  ops:
+    - name: /dbmanager
+      cname: Database Manager
 - name: Explorer
   cname: Explorer
   ops:
