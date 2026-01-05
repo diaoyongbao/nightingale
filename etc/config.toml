@@ -185,3 +185,22 @@ MaxIdleConnsPerHost = 100
 [Ibex]
 Enable = true
 RPCListen = "0.0.0.0:20090"
+
+# Archery 数据库管理集成配置
+[Integrations.Archery]
+Enable = false
+# Archery 服务地址
+Address = "http://10.20.120.133:5608"
+# 认证方式: token, basic, session
+AuthType = "token"
+# Token 认证 (当 AuthType = "token" 时使用)
+AuthToken = ""
+# Basic 认证 (当 AuthType = "basic" 时使用)
+Username = ""
+Password = ""
+# 超时设置(毫秒)
+Timeout = 5000
+ConnectTimeout = 2000
+# 是否跳过 SSL 验证
+InsecureSkipVerify = false
+

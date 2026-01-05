@@ -16,6 +16,7 @@ import (
 	alertrt "github.com/ccfos/nightingale/v6/alert/router"
 	"github.com/ccfos/nightingale/v6/center/cconf"
 	"github.com/ccfos/nightingale/v6/center/cconf/rsa"
+	"github.com/ccfos/nightingale/v6/center/dbm"
 	"github.com/ccfos/nightingale/v6/center/integration"
 	"github.com/ccfos/nightingale/v6/center/metas"
 	centerrt "github.com/ccfos/nightingale/v6/center/router"
@@ -121,6 +122,15 @@ func Initialize(configDir string, cryptoKey string) (func(), error) {
 	sso := sso.Init(config.Center, ctx, configCache)
 	promClients := prom.NewPromClient(ctx)
 
+	// 初始化 Archery 客户端
+	var archeryClient *dbm.ArcheryClient
+	if config.Integrations.Archery.Enable {
+		archeryClient, err = dbm.NewArcheryClient(&config.Integrations.Archery)
+		if err != nil {
+			logger.Warningf("failed to init archery client: %v", err)
+		}
+	}
+
 	dispatch.InitRegisterQueryFunc(promClients)
 
 	externalProcessors := process.NewExternalProcessors()
@@ -139,6 +149,7 @@ func Initialize(configDir string, cryptoKey string) (func(), error) {
 	centerRouter := centerrt.New(config.HTTP, config.Center, config.Alert, config.Ibex,
 		cconf.Operations, dsCache, notifyConfigCache, promClients,
 		redis, sso, ctx, metas, idents, targetCache, userCache, userGroupCache, userTokenCache)
+	centerRouter.ArcheryClient = archeryClient
 	pushgwRouter := pushgwrt.New(config.HTTP, config.Pushgw, config.Alert, targetCache, busiGroupCache, idents, metas, writers, ctx)
 
 	r := httpx.GinEngine(config.Global.RunMode, config.HTTP, configCvalCache.PrintBodyPaths, configCvalCache.PrintAccessLog)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/ccfos/nightingale/v6/alert/aconf"
 	"github.com/ccfos/nightingale/v6/center/cconf"
+	"github.com/ccfos/nightingale/v6/center/dbm"
 	"github.com/ccfos/nightingale/v6/pkg/cfg"
 	"github.com/ccfos/nightingale/v6/pkg/httpx"
 	"github.com/ccfos/nightingale/v6/pkg/logx"
@@ -24,10 +25,15 @@ type ConfigType struct {
 	Redis     storage.RedisConfig
 	CenterApi CenterApi
 
-	Pushgw pconf.Pushgw
-	Alert  aconf.Alert
-	Center cconf.Center
-	Ibex   Ibex
+	Pushgw       pconf.Pushgw
+	Alert        aconf.Alert
+	Center       cconf.Center
+	Ibex         Ibex
+	Integrations Integrations
+}
+
+type Integrations struct {
+	Archery dbm.ArcheryConfig
 }
 
 type CenterApi struct {
