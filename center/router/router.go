@@ -11,6 +11,7 @@ import (
 	"github.com/ccfos/nightingale/v6/alert/aconf"
 	"github.com/ccfos/nightingale/v6/center/cconf"
 	"github.com/ccfos/nightingale/v6/center/cstats"
+	"github.com/ccfos/nightingale/v6/center/dbm"
 	"github.com/ccfos/nightingale/v6/center/metas"
 	"github.com/ccfos/nightingale/v6/center/sso"
 	"github.com/ccfos/nightingale/v6/conf"
@@ -51,6 +52,7 @@ type Router struct {
 	UserGroupCache    *memsto.UserGroupCacheType
 	UserTokenCache    *memsto.UserTokenCacheType
 	Ctx               *ctx.Context
+	ArcheryClient     *dbm.ArcheryClient // Archery 客户端
 
 	HeartbeatHook       HeartbeatHookFunc
 	TargetDeleteHook    models.TargetDeleteHookFunc
@@ -577,6 +579,24 @@ func (rt *Router) Config(r *gin.Engine) {
 		pages.DELETE("/saved-view/:id", rt.auth(), rt.user(), rt.savedViewDel)
 		pages.POST("/saved-view/:id/favorite", rt.auth(), rt.user(), rt.savedViewFavoriteAdd)
 		pages.DELETE("/saved-view/:id/favorite", rt.auth(), rt.user(), rt.savedViewFavoriteDel)
+
+		// 数据库管理模块路由
+		pages.GET("/dbm/archery/instances", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryInstancesGet)
+		pages.GET("/dbm/archery/health", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryHealthCheck)
+
+		// 会话管理
+		pages.POST("/dbm/archery/sessions", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archerySessions)
+		pages.POST("/dbm/archery/sessions/kill", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.archeryKillSessions)
+		pages.POST("/dbm/archery/uncommitted-trx", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryUncommittedTrx)
+
+		// 慢查询分析
+		pages.POST("/dbm/archery/slow-queries", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archerySlowQueries)
+		pages.GET("/dbm/archery/slow-query/:instance_id/:checksum", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archerySlowQueryDetail)
+
+		// SQL执行与检查
+		pages.POST("/dbm/archery/sql/query", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.archerySQLQuery)
+		pages.POST("/dbm/archery/sql/check", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archerySQLCheck)
+		pages.POST("/dbm/archery/sql/workflow", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.archerySQLWorkflow)
 	}
 
 	r.GET("/api/n9e/versions", func(c *gin.Context) {

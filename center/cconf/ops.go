@@ -103,11 +103,11 @@ ops:
       cname: MCP Management
     - name: /aiops/chat
       cname: AI Chat
-- name: dbmanager
-  cname: Database Manager
+- name: dbm
+  cname: Database Management
   ops:
-    - name: /dbmanager
-      cname: Database Manager
+    - name: /dbm
+      cname: Database Management - View
 - name: Explorer
   cname: Explorer
   ops:
