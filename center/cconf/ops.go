@@ -298,6 +298,28 @@ ops:
     - name: /roles/del
       cname: Role - Delete
 
+- name: Database Management
+  cname: 数据库管理
+  ops:
+    - name: /dbm
+      cname: Instance List - View
+    - name: /dbm/sessions
+      cname: Session Management - View
+    - name: /dbm/slow-queries
+      cname: Slow Query Analysis - View
+    - name: /dbm/sql-query
+      cname: SQL Query Workbench - View
+    - name: /dbm/uncommitted-trx
+      cname: Uncommitted Transactions - View
+    - name: /dbm/locks
+      cname: Lock Information - View
+    - name: /dbm/sentinel
+      cname: DBA Sentinel - View
+    - name: /dbm/kill-logs
+      cname: Kill Logs - View
+    - name: /dbm/write
+      cname: DBM Write Operations
+
 - name: System Settings
   cname: System Settings
   ops:

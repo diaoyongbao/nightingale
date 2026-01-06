@@ -157,6 +157,9 @@ func Initialize(configDir string, cryptoKey string) (func(), error) {
 	// 启动中间件健康检查
 	go centercron.ScheduleMiddlewareHealthCheck(ctx, 60*time.Second)
 
+	// 启动 DBA 哨兵定时检查任务（每分钟检查一次）
+	go centercron.ScheduleDBASentinelChecker(ctx, 60*time.Second)
+
 	alertrtRouter := alertrt.New(config.HTTP, config.Alert, alertMuteCache, targetCache, busiGroupCache, alertStats, ctx, externalProcessors)
 	centerRouter := centerrt.New(config.HTTP, config.Center, config.Alert, config.Ibex,
 		cconf.Operations, dsCache, notifyConfigCache, promClients,

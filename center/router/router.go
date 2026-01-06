@@ -611,6 +611,23 @@ func (rt *Router) Config(r *gin.Engine) {
 		pages.POST("/dbm/archery/sql/query", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.archerySQLQuery)
 		pages.POST("/dbm/archery/sql/check", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archerySQLCheck)
 		pages.POST("/dbm/archery/sql/workflow", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.archerySQLWorkflow)
+
+		// 锁信息查询
+		pages.POST("/dbm/archery/lock-waits", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryLockWaits)
+		pages.GET("/dbm/archery/innodb-locks", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryInnoDBLocks)
+
+		// DBA 哨兵规则管理
+		pages.GET("/dbm/sentinel/rules", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbaSentinelRuleGets)
+		pages.GET("/dbm/sentinel/rule/:id", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbaSentinelRuleGet)
+		pages.POST("/dbm/sentinel/rule", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbaSentinelRuleAdd)
+		pages.PUT("/dbm/sentinel/rule/:id", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbaSentinelRulePut)
+		pages.DELETE("/dbm/sentinel/rules", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbaSentinelRuleDel)
+		pages.PUT("/dbm/sentinel/rule/:id/status", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbaSentinelRuleStatusPut)
+
+		// DBA 哨兵状态和日志
+		pages.GET("/dbm/sentinel/status", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbaSentinelStatus)
+		pages.GET("/dbm/sentinel/kill-logs", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbaSentinelKillLogGets)
+		pages.GET("/dbm/sentinel/rule/:id/stats", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbaSentinelKillLogStats)
 	}
 
 	r.GET("/api/n9e/versions", func(c *gin.Context) {
