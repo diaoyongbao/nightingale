@@ -3,9 +3,9 @@
 cp -f ./docker/initsql/a-n9e.sql n9e.sql
 
 if [ ! -d "./pub" ]; then
-    TAG=$(curl -sX GET https://api.github.com/repos/n9e/fe/releases/latest   | awk '/tag_name/{print $4;exit}' FS='[""]')
+    TAG=$(curl -sX GET https://api.github.com/repos/diaoyongbao/fe/releases/latest   | awk '/tag_name/{print $4;exit}' FS='[""]')
 
-    if ! curl -o n9e-fe-${TAG}.tar.gz -L https://github.com/n9e/fe/releases/download/${TAG}/n9e-fe-${TAG}.tar.gz; then
+    if ! curl -o n9e-fe-${TAG}.tar.gz -L https://github.com/diaoyongbao/fe/releases/download/${TAG}/n9e-fe-${TAG}.tar.gz; then
         echo "failed to download n9e-fe-${TAG}.tar.gz!"
         exit 1
     fi

@@ -580,6 +580,20 @@ func (rt *Router) Config(r *gin.Engine) {
 		pages.POST("/saved-view/:id/favorite", rt.auth(), rt.user(), rt.savedViewFavoriteAdd)
 		pages.DELETE("/saved-view/:id/favorite", rt.auth(), rt.user(), rt.savedViewFavoriteDel)
 
+		// 中间件数据源管理路由 (Admin 权限)
+		pages.GET("/middleware-datasources", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourcesGets)
+		pages.GET("/middleware-datasources/count", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourceCount)
+		pages.GET("/middleware-datasource/:id", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourceGet)
+		pages.POST("/middleware-datasource", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourceAdd)
+		pages.PUT("/middleware-datasource/:id", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourcePut)
+		pages.DELETE("/middleware-datasources", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourceDel)
+		pages.POST("/middleware-datasource/:id/test", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourceTestConnection)
+		pages.GET("/middleware-datasource/types", rt.auth(), rt.user(), rt.middlewareDatasourceTypes)
+		pages.GET("/middleware-datasource/by-type", rt.auth(), rt.user(), rt.middlewareDatasourceGetByType)
+		pages.POST("/middleware-datasources/status", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourceUpdateStatus)
+		pages.GET("/middleware-datasource/:id/export", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourceExport)
+		pages.POST("/middleware-datasource/migrate-archery", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourceMigrateArchery)
+
 		// 数据库管理模块路由
 		pages.GET("/dbm/archery/instances", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryInstancesGet)
 		pages.GET("/dbm/archery/health", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryHealthCheck)
