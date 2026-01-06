@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ccfos/nightingale/v6/dscache"
 
@@ -16,6 +17,7 @@ import (
 	alertrt "github.com/ccfos/nightingale/v6/alert/router"
 	"github.com/ccfos/nightingale/v6/center/cconf"
 	"github.com/ccfos/nightingale/v6/center/cconf/rsa"
+	centercron "github.com/ccfos/nightingale/v6/center/cron"
 	"github.com/ccfos/nightingale/v6/center/dbm"
 	"github.com/ccfos/nightingale/v6/center/integration"
 	"github.com/ccfos/nightingale/v6/center/metas"
@@ -129,6 +131,13 @@ func Initialize(configDir string, cryptoKey string) (func(), error) {
 		if err != nil {
 			logger.Warningf("failed to init archery client: %v", err)
 		}
+
+		// 自动迁移 Archery 配置到数据库
+		if err := models.MigrateArcheryConfigToDB(ctx, config.Integrations.Archery); err != nil {
+			logger.Warningf("Failed to migrate Archery config to database: %v", err)
+		} else {
+			logger.Info("Archery config migrated to database successfully")
+		}
 	}
 
 	dispatch.InitRegisterQueryFunc(promClients)
@@ -144,6 +153,9 @@ func Initialize(configDir string, cryptoKey string) (func(), error) {
 	go version.GetGithubVersion()
 
 	go cron.CleanNotifyRecord(ctx, config.Center.CleanNotifyRecordDay)
+
+	// 启动中间件健康检查
+	go centercron.ScheduleMiddlewareHealthCheck(ctx, 60*time.Second)
 
 	alertrtRouter := alertrt.New(config.HTTP, config.Alert, alertMuteCache, targetCache, busiGroupCache, alertStats, ctx, externalProcessors)
 	centerRouter := centerrt.New(config.HTTP, config.Center, config.Alert, config.Ibex,

@@ -15,6 +15,7 @@ import (
 func Migrate(db *gorm.DB) {
 	MigrateTables(db)
 	MigrateEsIndexPatternTable(db)
+	MigrateMiddlewareDatasource(db)
 }
 
 func MigrateIbexTables(db *gorm.DB) {
@@ -69,7 +70,7 @@ func MigrateTables(db *gorm.DB) error {
 		&models.MetricFilter{}, &models.NotificationRecord{}, &models.TargetBusiGroup{},
 		&models.UserToken{}, &models.DashAnnotation{}, MessageTemplate{}, NotifyRule{}, NotifyChannelConfig{}, &EsIndexPatternMigrate{},
 		&models.EventPipeline{}, &models.EmbeddedProduct{}, &models.SourceToken{},
-		&models.SavedView{}, &models.UserViewFavorite{}}
+		&models.SavedView{}, &models.UserViewFavorite{}, &models.MiddlewareDatasource{}}
 
 	if isPostgres(db) {
 		dts = append(dts, &models.PostgresBuiltinComponent{})
