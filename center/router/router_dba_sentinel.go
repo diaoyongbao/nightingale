@@ -3,7 +3,6 @@ package router
 import (
 	"time"
 
-	"github.com/ccfos/nightingale/v6/center/dbm"
 	"github.com/ccfos/nightingale/v6/models"
 	"github.com/gin-gonic/gin"
 	"github.com/toolkits/pkg/ginx"
@@ -200,59 +199,7 @@ func (rt *Router) dbaSentinelKillLogStats(c *gin.Context) {
 
 // ==================== 锁信息查询 ====================
 
-// archeryLockWaits 获取锁等待信息
-func (rt *Router) archeryLockWaits(c *gin.Context) {
-	client, err := rt.getArcheryClient()
-	if err != nil {
-		ginx.NewRender(c).Message(err)
-		return
-	}
-	if client == nil {
-		ginx.NewRender(c).Message("Archery integration is not enabled")
-		return
-	}
-
-	var req dbm.ArcheryLockWaitRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ginx.NewRender(c).Message(err)
-		return
-	}
-
-	locks, err := client.GetLockWaits(req)
-	if err != nil {
-		ginx.NewRender(c).Message(err)
-		return
-	}
-
-	ginx.NewRender(c).Data(locks, nil)
-}
-
-// archeryInnoDBLocks 获取 InnoDB 锁信息
-func (rt *Router) archeryInnoDBLocks(c *gin.Context) {
-	client, err := rt.getArcheryClient()
-	if err != nil {
-		ginx.NewRender(c).Message(err)
-		return
-	}
-	if client == nil {
-		ginx.NewRender(c).Message("Archery integration is not enabled")
-		return
-	}
-
-	instanceId := ginx.QueryInt(c, "instance_id", 0)
-	if instanceId <= 0 {
-		ginx.NewRender(c).Message("instance_id is required")
-		return
-	}
-
-	locks, err := client.GetInnoDBLocks(instanceId)
-	if err != nil {
-		ginx.NewRender(c).Message(err)
-		return
-	}
-
-	ginx.NewRender(c).Data(locks, nil)
-}
+// 锁信息查询已移至 router_dbm.go
 
 // ==================== 哨兵状态 ====================
 

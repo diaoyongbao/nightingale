@@ -2,6 +2,7 @@ package cron
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -90,38 +91,42 @@ func (c *DBASentinelChecker) checkRule(rule *models.DBASentinelRule) {
 	// 更新上次检查时间
 	rule.UpdateLastCheckAt(c.ctx)
 
-	// 获取 Archery 客户端
-	config, err := models.GetArcheryClientFromDB(c.ctx, "")
+	// 获取数据库实例
+	instance, err := models.DBInstanceGet(c.ctx, rule.InstanceId)
 	if err != nil {
-		logger.Warningf("failed to get archery config: %v", err)
-		return
-	}
-	if config == nil {
+		logger.Warningf("failed to get db instance %d: %v", rule.InstanceId, err)
 		return
 	}
 
-	client, err := dbm.NewArcheryClient(config)
+	// 创建数据库客户端
+	dsn, err := instance.GetDSN("")
 	if err != nil {
-		logger.Warningf("failed to create archery client: %v", err)
+		logger.Warningf("failed to get DSN for instance %d: %v", rule.InstanceId, err)
 		return
 	}
+
+	client, err := dbm.NewMySQLClient(instance.Id, dsn, instance.MaxConnections, instance.MaxIdleConns)
+	if err != nil {
+		logger.Warningf("failed to create mysql client for instance %d: %v", rule.InstanceId, err)
+		return
+	}
+	defer client.Close()
 
 	// 根据规则类型执行检查
 	switch rule.RuleType {
 	case models.SentinelRuleTypeSlowQuery:
-		c.checkSlowQuery(client, rule)
+		c.checkSlowQuery(client, instance, rule)
 	case models.SentinelRuleTypeUncommittedTrx:
-		c.checkUncommittedTrx(client, rule)
+		c.checkUncommittedTrx(client, instance, rule)
 	case models.SentinelRuleTypeLockWait:
-		c.checkLockWait(client, rule)
+		c.checkLockWait(client, instance, rule)
 	}
 }
 
 // checkSlowQuery 检查慢查询 (processlist)
-func (c *DBASentinelChecker) checkSlowQuery(client *dbm.ArcheryClient, rule *models.DBASentinelRule) {
-	sessions, err := client.GetSessions(dbm.ArcherySessionListRequest{
-		InstanceID: int(rule.InstanceId),
-	})
+func (c *DBASentinelChecker) checkSlowQuery(client *dbm.MySQLClient, instance *models.DBInstance, rule *models.DBASentinelRule) {
+	ctx := context.Background()
+	sessions, err := client.GetSessions(ctx, dbm.SessionFilter{})
 	if err != nil {
 		logger.Warningf("failed to get sessions for instance %d: %v", rule.InstanceId, err)
 		return
@@ -142,15 +147,14 @@ func (c *DBASentinelChecker) checkSlowQuery(client *dbm.ArcheryClient, rule *mod
 		}
 
 		// 记录并执行动作
-		c.executeAction(client, rule, &session, reason)
+		c.executeAction(client, instance, rule, &session, reason)
 	}
 }
 
 // checkUncommittedTrx 检查未提交事务
-func (c *DBASentinelChecker) checkUncommittedTrx(client *dbm.ArcheryClient, rule *models.DBASentinelRule) {
-	trxList, err := client.GetUncommittedTransactions(dbm.ArcheryUncommittedTrxRequest{
-		InstanceID: int(rule.InstanceId),
-	})
+func (c *DBASentinelChecker) checkUncommittedTrx(client *dbm.MySQLClient, instance *models.DBInstance, rule *models.DBASentinelRule) {
+	ctx := context.Background()
+	trxList, err := client.GetUncommittedTransactions(ctx)
 	if err != nil {
 		logger.Warningf("failed to get uncommitted transactions for instance %d: %v", rule.InstanceId, err)
 		return
@@ -171,27 +175,26 @@ func (c *DBASentinelChecker) checkUncommittedTrx(client *dbm.ArcheryClient, rule
 		}
 
 		// 构造 session 对象
-		session := &dbm.ArcherySession{
+		session := &dbm.Session{
 			ID:      trx.ProcesslistID,
 			User:    trx.User,
+			Host:    trx.Host,
 			DB:      trx.DB,
 			Command: "Query",
 			Time:    trx.RuntimeSec,
 			State:   "uncommitted",
 			Info:    trx.SQLText,
-			TrxID:   trx.TrxID,
 		}
 
 		// 记录并执行动作
-		c.executeAction(client, rule, session, reason)
+		c.executeAction(client, instance, rule, session, reason)
 	}
 }
 
 // checkLockWait 检查锁等待
-func (c *DBASentinelChecker) checkLockWait(client *dbm.ArcheryClient, rule *models.DBASentinelRule) {
-	locks, err := client.GetLockWaits(dbm.ArcheryLockWaitRequest{
-		InstanceID: int(rule.InstanceId),
-	})
+func (c *DBASentinelChecker) checkLockWait(client *dbm.MySQLClient, instance *models.DBInstance, rule *models.DBASentinelRule) {
+	ctx := context.Background()
+	locks, err := client.GetLockWaits(ctx)
 	if err != nil {
 		logger.Warningf("failed to get lock waits for instance %d: %v", rule.InstanceId, err)
 		return
@@ -217,7 +220,7 @@ func (c *DBASentinelChecker) checkLockWait(client *dbm.ArcheryClient, rule *mode
 		}
 
 		// 构造 session 对象 (等待锁的进程)
-		session := &dbm.ArcherySession{
+		session := &dbm.Session{
 			ID:      lock.WaitingThreadID,
 			User:    lock.WaitingUser,
 			Host:    lock.WaitingHost,
@@ -232,12 +235,12 @@ func (c *DBASentinelChecker) checkLockWait(client *dbm.ArcheryClient, rule *mode
 			rule.Name, lock.WaitingTime, rule.MaxTime, lock.BlockingUser, lock.BlockingHost)
 
 		// 记录并执行动作
-		c.executeAction(client, rule, session, reason)
+		c.executeAction(client, instance, rule, session, reason)
 	}
 }
 
 // executeAction 执行动作 (kill 或仅通知)
-func (c *DBASentinelChecker) executeAction(client *dbm.ArcheryClient, rule *models.DBASentinelRule, session *dbm.ArcherySession, reason string) {
+func (c *DBASentinelChecker) executeAction(client *dbm.MySQLClient, instance *models.DBInstance, rule *models.DBASentinelRule, session *dbm.Session, reason string) {
 	// 创建日志记录
 	log := &models.DBASentinelKillLog{
 		RuleId:       rule.Id,
@@ -251,17 +254,14 @@ func (c *DBASentinelChecker) executeAction(client *dbm.ArcheryClient, rule *mode
 		Time:         session.Time,
 		State:        session.State,
 		SqlText:      session.Info,
-		TrxId:        session.TrxID,
 		KillReason:   reason,
 		NotifyStatus: models.NotifyStatusSkipped,
 	}
 
 	// 执行 Kill 动作
 	if rule.Action == models.SentinelActionKill {
-		err := client.KillSessions(dbm.ArcheryKillSessionsRequest{
-			InstanceID: int(rule.InstanceId),
-			ThreadIDs:  []int64{session.ID},
-		})
+		ctx := context.Background()
+		err := client.KillSession(ctx, session.ID)
 
 		if err != nil {
 			log.KillResult = models.KillResultFailed
