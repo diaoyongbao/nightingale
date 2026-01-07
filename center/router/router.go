@@ -595,26 +595,30 @@ func (rt *Router) Config(r *gin.Engine) {
 		pages.POST("/middleware-datasource/migrate-archery", rt.auth(), rt.user(), rt.perm("/system/middleware"), rt.middlewareDatasourceMigrateArchery)
 
 		// 数据库管理模块路由
-		pages.GET("/dbm/archery/instances", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryInstancesGet)
-		pages.GET("/dbm/archery/health", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryHealthCheck)
+		// 实例管理
+		pages.GET("/dbm/instances", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbInstanceGets)
+		pages.GET("/dbm/instance/:id/health", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbInstanceHealthCheck)
+		pages.GET("/dbm/instance/:id", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbInstanceGet)
+		pages.POST("/dbm/instance", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbInstanceAdd)
+		pages.PUT("/dbm/instance/:id", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbInstancePut)
+		pages.DELETE("/dbm/instances", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbInstanceDel)
+		pages.GET("/dbm/instance/:id/databases", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmGetDatabases)
 
 		// 会话管理
-		pages.POST("/dbm/archery/sessions", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archerySessions)
-		pages.POST("/dbm/archery/sessions/kill", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.archeryKillSessions)
-		pages.POST("/dbm/archery/uncommitted-trx", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryUncommittedTrx)
+		pages.POST("/dbm/sessions", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmSessions)
+		pages.POST("/dbm/sessions/kill", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbmKillSessions)
+		pages.POST("/dbm/uncommitted-trx", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmUncommittedTransactions)
 
 		// 慢查询分析
-		pages.POST("/dbm/archery/slow-queries", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archerySlowQueries)
-		pages.GET("/dbm/archery/slow-query/:instance_id/:checksum", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archerySlowQueryDetail)
+		pages.POST("/dbm/slow-queries", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmSlowQueries)
 
 		// SQL执行与检查
-		pages.POST("/dbm/archery/sql/query", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.archerySQLQuery)
-		pages.POST("/dbm/archery/sql/check", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archerySQLCheck)
-		pages.POST("/dbm/archery/sql/workflow", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.archerySQLWorkflow)
+		pages.POST("/dbm/sql/query", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbmExecuteSQL)
+		pages.POST("/dbm/sql/check", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmCheckSQL)
 
 		// 锁信息查询
-		pages.POST("/dbm/archery/lock-waits", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryLockWaits)
-		pages.GET("/dbm/archery/innodb-locks", rt.auth(), rt.user(), rt.perm("/dbm"), rt.archeryInnoDBLocks)
+		pages.POST("/dbm/lock-waits", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmLockWaits)
+		pages.GET("/dbm/innodb-locks", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmInnoDBLocks)
 
 		// DBA 哨兵规则管理
 		pages.GET("/dbm/sentinel/rules", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbaSentinelRuleGets)
