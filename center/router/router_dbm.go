@@ -535,6 +535,67 @@ func (rt *Router) dbmInnoDBLocks(c *gin.Context) {
 
 // ==================== 慢查询 ====================
 
+// ==================== 表和列信息 ====================
+
+// dbmGetTables 获取数据库的表列表
+func (rt *Router) dbmGetTables(c *gin.Context) {
+	id := ginx.UrlParamInt64(c, "id")
+	dbName := c.Param("db")
+
+	instance, err := models.DBInstanceGet(rt.Ctx, id)
+	if err != nil {
+		ginx.NewRender(c).Message(err)
+		return
+	}
+
+	client, err := getDBClient(instance)
+	if err != nil {
+		ginx.NewRender(c).Message(err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tables, err := client.GetTables(ctx, dbName)
+	if err != nil {
+		ginx.NewRender(c).Message(err)
+		return
+	}
+
+	ginx.NewRender(c).Data(tables, nil)
+}
+
+// dbmGetTableColumns 获取表的列信息
+func (rt *Router) dbmGetTableColumns(c *gin.Context) {
+	id := ginx.UrlParamInt64(c, "id")
+	dbName := c.Param("db")
+	tableName := c.Param("table")
+
+	instance, err := models.DBInstanceGet(rt.Ctx, id)
+	if err != nil {
+		ginx.NewRender(c).Message(err)
+		return
+	}
+
+	client, err := getDBClient(instance)
+	if err != nil {
+		ginx.NewRender(c).Message(err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	columns, err := client.GetTableColumns(ctx, dbName, tableName)
+	if err != nil {
+		ginx.NewRender(c).Message(err)
+		return
+	}
+
+	ginx.NewRender(c).Data(columns, nil)
+}
+
 // dbmSlowQueries 获取慢查询列表
 func (rt *Router) dbmSlowQueries(c *gin.Context) {
 	var req struct {

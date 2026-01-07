@@ -38,6 +38,12 @@ type DBClient interface {
 
 	// GetDatabases 获取数据库列表
 	GetDatabases(ctx context.Context) ([]string, error)
+
+	// GetTables 获取指定数据库的表列表
+	GetTables(ctx context.Context, dbName string) ([]TableInfo, error)
+
+	// GetTableColumns 获取指定表的列信息
+	GetTableColumns(ctx context.Context, dbName, tableName string) ([]ColumnInfo, error)
 }
 
 // Session 会话信息
@@ -166,4 +172,26 @@ type SlowQueryFilter struct {
 	EndTime   string
 	DBName    string
 	Limit     int
+}
+
+// TableInfo 表信息
+type TableInfo struct {
+	Name       string `json:"name"`
+	Comment    string `json:"comment"`
+	Engine     string `json:"engine"`
+	Rows       int64  `json:"rows"`
+	DataLength int64  `json:"data_length"`
+	CreateTime string `json:"create_time"`
+}
+
+// ColumnInfo 列信息
+type ColumnInfo struct {
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	Nullable   bool   `json:"nullable"`
+	Key        string `json:"key"`
+	Default    string `json:"default"`
+	Extra      string `json:"extra"`
+	Comment    string `json:"comment"`
+	OrdinalPos int    `json:"ordinal_position"`
 }

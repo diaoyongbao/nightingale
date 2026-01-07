@@ -603,6 +603,8 @@ func (rt *Router) Config(r *gin.Engine) {
 		pages.PUT("/dbm/instance/:id", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbInstancePut)
 		pages.DELETE("/dbm/instances", rt.auth(), rt.user(), rt.perm("/dbm/write"), rt.dbInstanceDel)
 		pages.GET("/dbm/instance/:id/databases", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmGetDatabases)
+		pages.GET("/dbm/instance/:id/databases/:db/tables", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmGetTables)
+		pages.GET("/dbm/instance/:id/databases/:db/tables/:table/columns", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmGetTableColumns)
 
 		// 会话管理
 		pages.POST("/dbm/sessions", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbmSessions)

@@ -482,3 +482,73 @@ func (c *MySQLClient) GetDatabases(ctx context.Context) ([]string, error) {
 
 	return databases, rows.Err()
 }
+
+// GetTables 获取指定数据库的表列表
+func (c *MySQLClient) GetTables(ctx context.Context, dbName string) ([]TableInfo, error) {
+	query := `
+		SELECT 
+			TABLE_NAME,
+			IFNULL(TABLE_COMMENT, '') as TABLE_COMMENT,
+			IFNULL(ENGINE, '') as ENGINE,
+			IFNULL(TABLE_ROWS, 0) as TABLE_ROWS,
+			IFNULL(DATA_LENGTH, 0) as DATA_LENGTH,
+			IFNULL(CREATE_TIME, '') as CREATE_TIME
+		FROM information_schema.TABLES 
+		WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'
+		ORDER BY TABLE_NAME
+	`
+
+	rows, err := c.db.QueryContext(ctx, query, dbName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tables: %w", err)
+	}
+	defer rows.Close()
+
+	var tables []TableInfo
+	for rows.Next() {
+		var t TableInfo
+		if err := rows.Scan(&t.Name, &t.Comment, &t.Engine, &t.Rows, &t.DataLength, &t.CreateTime); err != nil {
+			return nil, fmt.Errorf("failed to scan table: %w", err)
+		}
+		tables = append(tables, t)
+	}
+
+	return tables, rows.Err()
+}
+
+// GetTableColumns 获取指定表的列信息
+func (c *MySQLClient) GetTableColumns(ctx context.Context, dbName, tableName string) ([]ColumnInfo, error) {
+	query := `
+		SELECT 
+			COLUMN_NAME,
+			COLUMN_TYPE,
+			IS_NULLABLE,
+			IFNULL(COLUMN_KEY, '') as COLUMN_KEY,
+			IFNULL(COLUMN_DEFAULT, '') as COLUMN_DEFAULT,
+			IFNULL(EXTRA, '') as EXTRA,
+			IFNULL(COLUMN_COMMENT, '') as COLUMN_COMMENT,
+			ORDINAL_POSITION
+		FROM information_schema.COLUMNS 
+		WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+		ORDER BY ORDINAL_POSITION
+	`
+
+	rows, err := c.db.QueryContext(ctx, query, dbName, tableName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get columns: %w", err)
+	}
+	defer rows.Close()
+
+	var columns []ColumnInfo
+	for rows.Next() {
+		var col ColumnInfo
+		var nullable string
+		if err := rows.Scan(&col.Name, &col.Type, &nullable, &col.Key, &col.Default, &col.Extra, &col.Comment, &col.OrdinalPos); err != nil {
+			return nil, fmt.Errorf("failed to scan column: %w", err)
+		}
+		col.Nullable = (nullable == "YES")
+		columns = append(columns, col)
+	}
+
+	return columns, rows.Err()
+}
