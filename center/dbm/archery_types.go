@@ -9,6 +9,8 @@ type ArcheryInstance struct {
 	Type         string `json:"type"`    // master, slave
 	DBType       string `json:"db_type"` // mysql, redis, mongodb等
 	Mode         string `json:"mode"`    // standalone, cluster
+	Type         string `json:"type"`    // mysql, redis, mongodb等
+	DBType       string `json:"db_type"` // master, slave
 	Host         string `json:"host"`
 	Port         int    `json:"port"`
 	User         string `json:"user"`
@@ -34,6 +36,7 @@ type ArcheryInstanceListResponse struct {
 }
 
 // ArcheryResponse Archery API 响应格式 (用于某些接口)
+// ArcheryResponse Archery API 响应格式
 type ArcheryResponse struct {
 	Status int         `json:"status"`
 	Msg    string      `json:"msg"`
