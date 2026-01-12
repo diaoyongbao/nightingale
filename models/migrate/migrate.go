@@ -71,7 +71,15 @@ func MigrateTables(db *gorm.DB) error {
 		&models.UserToken{}, &models.DashAnnotation{}, MessageTemplate{}, NotifyRule{}, NotifyChannelConfig{}, &EsIndexPatternMigrate{},
 		&models.EventPipeline{}, &models.EmbeddedProduct{}, &models.SourceToken{},
 		&models.SavedView{}, &models.UserViewFavorite{}, &models.MiddlewareDatasource{},
-		&models.DBInstance{}, &models.DBASentinelRule{}, &models.DBASentinelKillLog{}}
+		&models.DBInstance{}, &models.DBASentinelRule{}, &models.DBASentinelKillLog{},
+		// n9e-2kai: AI 助手模块表迁移
+		&models.MCPServer{}, &models.AIConfig{}, &models.MCPTemplate{}, &models.AISessionArchive{},
+		// n9e-2kai: AI 优化配置表迁移
+		&models.AIOptimizationConfig{},
+		// n9e-2kai: 知识库 Provider 和工具表迁移
+		&models.KnowledgeProvider{}, &models.KnowledgeTool{},
+		// n9e-2kai: 动态 Agent 架构表迁移
+		&models.AIAgent{}, &models.AITool{}, &models.AIAgentToolRel{}}
 
 	if isPostgres(db) {
 		dts = append(dts, &models.PostgresBuiltinComponent{})

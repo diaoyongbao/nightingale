@@ -75,6 +75,11 @@ func Initialize(configDir string, cryptoKey string) (func(), error) {
 	migrate.Migrate(db)
 	isRootInit := models.InitRoot(ctx)
 
+	// n9e-2kai: 初始化 AI Agent 种子数据
+	if err := models.InitAIAgentSeed(ctx); err != nil {
+		logger.Warningf("failed to init AI Agent seed data: %v", err)
+	}
+
 	config.HTTP.JWTAuth.SigningKey = models.InitJWTSigningKey(ctx)
 
 	err = rsa.InitRSAConfig(ctx, &config.HTTP.RSA)

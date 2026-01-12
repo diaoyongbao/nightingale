@@ -96,13 +96,17 @@ ops:
       cname: Host - Delete
     - name: /targets/bind
       cname: Host - Bind Uncategorized
-- name: AIops
-  cname: AI Operations
+- name: AIAssistant
+  cname: AI Assistant
   ops:
-    - name: /aiops/mcp
-      cname: MCP Management
-    - name: /aiops/chat
+    - name: /ai-assistant
+      cname: AI Assistant - View
+    - name: /ai-assistant/chat
       cname: AI Chat
+    - name: /ai-assistant/mcp
+      cname: MCP Management
+    - name: /ai-assistant/config
+      cname: AI Config Management
 - name: dbm
   cname: Database Management
   ops:

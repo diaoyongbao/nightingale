@@ -636,6 +636,9 @@ func (rt *Router) Config(r *gin.Engine) {
 		pages.GET("/dbm/sentinel/rule/:id/stats", rt.auth(), rt.user(), rt.perm("/dbm"), rt.dbaSentinelKillLogStats)
 	}
 
+	// n9e-2kai: AI 助手模块路由
+	rt.configAIAssistantRoutes(pages)
+
 	r.GET("/api/n9e/versions", func(c *gin.Context) {
 		v := version.Version
 		lastIndex := strings.LastIndex(version.Version, "-")
