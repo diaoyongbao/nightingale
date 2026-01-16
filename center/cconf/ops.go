@@ -324,6 +324,38 @@ ops:
     - name: /dbm/write
       cname: DBM Write Operations
 
+- name: Cloud Management
+  cname: 云服务管理
+  ops:
+    - name: /cloud-management
+      cname: Cloud Management - View
+    - name: /cloud-management/accounts
+      cname: Cloud Account - View
+    - name: /cloud-management/accounts/add
+      cname: Cloud Account - Add
+    - name: /cloud-management/accounts/put
+      cname: Cloud Account - Modify
+    - name: /cloud-management/accounts/del
+      cname: Cloud Account - Delete
+    - name: /cloud-management/ecs
+      cname: Cloud ECS - View
+    - name: /cloud-management/rds
+      cname: Cloud RDS - View
+    - name: /cloud-management/sync
+      cname: Cloud Sync - Execute
+    - name: /cloud-management/sync-logs
+      cname: Sync Logs - View
+    - name: /cloud-management/settings
+      cname: Cloud Settings - View
+    - name: /cloud-management/settings/add
+      cname: Cloud Settings - Add
+    - name: /cloud-management/settings/put
+      cname: Cloud Settings - Modify
+    - name: /cloud-management/settings/del
+      cname: Cloud Settings - Delete
+    - name: /cloud-management/slowlog-report
+      cname: Slow Log Report - View
+
 - name: System Settings
   cname: System Settings
   ops:

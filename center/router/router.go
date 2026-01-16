@@ -639,6 +639,15 @@ func (rt *Router) Config(r *gin.Engine) {
 	// n9e-2kai: AI 助手模块路由
 	rt.configAIAssistantRoutes(pages)
 
+	// n9e-2kai: 云服务管理模块路由
+	rt.configCloudManagementRoutes(pages)
+	// n9e-2kai: RDS 负责人管理 + 慢日志周报告路由
+	rt.configCloudRDSOwnerRoutes(pages)
+	// n9e-2kai: 慢SQL优化跟踪路由
+	rt.configSlowSQLTrackingRoutes(pages)
+	// n9e-2kai: 负责人管理路由
+	rt.configCloudStaffRoutes(pages)
+
 	r.GET("/api/n9e/versions", func(c *gin.Context) {
 		v := version.Version
 		lastIndex := strings.LastIndex(version.Version, "-")

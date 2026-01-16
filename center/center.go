@@ -17,6 +17,7 @@ import (
 	alertrt "github.com/ccfos/nightingale/v6/alert/router"
 	"github.com/ccfos/nightingale/v6/center/cconf"
 	"github.com/ccfos/nightingale/v6/center/cconf/rsa"
+	"github.com/ccfos/nightingale/v6/center/cloudmgmt"
 	centercron "github.com/ccfos/nightingale/v6/center/cron"
 	"github.com/ccfos/nightingale/v6/center/dbm"
 	"github.com/ccfos/nightingale/v6/center/integration"
@@ -164,6 +165,10 @@ func Initialize(configDir string, cryptoKey string) (func(), error) {
 
 	// 启动 DBA 哨兵定时检查任务（每分钟检查一次）
 	go centercron.ScheduleDBASentinelChecker(ctx, 60*time.Second)
+
+	// n9e-2kai: 初始化云服务管理模块
+	cloudmgmt.Init(ctx)
+	logger.Info("cloud management module initialized")
 
 	alertrtRouter := alertrt.New(config.HTTP, config.Alert, alertMuteCache, targetCache, busiGroupCache, alertStats, ctx, externalProcessors)
 	centerRouter := centerrt.New(config.HTTP, config.Center, config.Alert, config.Ibex,

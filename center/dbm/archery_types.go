@@ -9,8 +9,6 @@ type ArcheryInstance struct {
 	Type         string `json:"type"`    // master, slave
 	DBType       string `json:"db_type"` // mysql, redis, mongodb等
 	Mode         string `json:"mode"`    // standalone, cluster
-	Type         string `json:"type"`    // mysql, redis, mongodb等
-	DBType       string `json:"db_type"` // master, slave
 	Host         string `json:"host"`
 	Port         int    `json:"port"`
 	User         string `json:"user"`
@@ -49,4 +47,3 @@ type ArcheryHealthResponse struct {
 	Time    time.Time `json:"time"`
 	Version string    `json:"version"`
 }
-
