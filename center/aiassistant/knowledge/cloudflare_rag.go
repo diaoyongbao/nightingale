@@ -171,7 +171,7 @@ func (p *CloudflareRAGProvider) Query(ctx context.Context, req *QueryRequest) (*
 			Error:  fmt.Sprintf("failed to read response: %v", err),
 		}, nil
 	}
-
+	
 	// 检查 HTTP 状态码
 	if resp.StatusCode != http.StatusOK {
 		logger.Errorf("CloudflareRAG error: status=%d, body=%s", resp.StatusCode, string(body))

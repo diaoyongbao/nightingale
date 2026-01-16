@@ -88,9 +88,11 @@ func (rt *Router) slowSQLTrackingUpdateStatus(c *gin.Context) {
 }
 
 // slowSQLTrackingAssign 指派负责人
+// 注意：负责人信息现在存储在 cloud_rds_owner 表中，通过 instance_id 关联
+// 此接口用于更新实例的负责人，影响该实例下所有慢SQL的负责人显示
 func (rt *Router) slowSQLTrackingAssign(c *gin.Context) {
 	var req struct {
-		SqlHash    string `json:"sql_hash" binding:"required"`
+		InstanceId string `json:"instance_id" binding:"required"` // 改为通过实例ID指派
 		Owner      string `json:"owner" binding:"required"`
 		OwnerEmail string `json:"owner_email"`
 		Team       string `json:"team"`
@@ -101,12 +103,17 @@ func (rt *Router) slowSQLTrackingAssign(c *gin.Context) {
 	}
 
 	username := c.GetString("username")
-	updates := map[string]interface{}{
-		"owner":       req.Owner,
-		"owner_email": req.OwnerEmail,
-		"team":        req.Team,
+
+	// 更新 cloud_rds_owner 表
+	owner := &models.CloudRDSOwner{
+		InstanceId: req.InstanceId,
+		Owner:      req.Owner,
+		OwnerEmail: req.OwnerEmail,
+		Team:       req.Team,
+		UpdateBy:   username,
 	}
-	err := models.CloudRDSSlowSQLStatusUpdate(rt.Ctx, req.SqlHash, updates, username)
+
+	err := models.CloudRDSOwnerUpsert(rt.Ctx, owner)
 	if err != nil {
 		ginx.NewRender(c).Message(err.Error())
 		return
@@ -116,13 +123,11 @@ func (rt *Router) slowSQLTrackingAssign(c *gin.Context) {
 }
 
 // slowSQLTrackingUpdate 更新跟踪信息
+// 注意：owner 相关字段已移至 cloud_rds_owner 表，请使用 /assign 接口更新负责人信息
 func (rt *Router) slowSQLTrackingUpdate(c *gin.Context) {
 	var req struct {
 		SqlHash        string `json:"sql_hash" binding:"required"`
 		Priority       string `json:"priority"`
-		Owner          string `json:"owner"`
-		OwnerEmail     string `json:"owner_email"`
-		Team           string `json:"team"`
 		OptimizeNote   string `json:"optimize_note"`
 		OptimizeResult string `json:"optimize_result"`
 	}
@@ -135,15 +140,6 @@ func (rt *Router) slowSQLTrackingUpdate(c *gin.Context) {
 	updates := map[string]interface{}{}
 	if req.Priority != "" {
 		updates["priority"] = req.Priority
-	}
-	if req.Owner != "" {
-		updates["owner"] = req.Owner
-	}
-	if req.OwnerEmail != "" {
-		updates["owner_email"] = req.OwnerEmail
-	}
-	if req.Team != "" {
-		updates["team"] = req.Team
 	}
 	if req.OptimizeNote != "" {
 		updates["optimize_note"] = req.OptimizeNote

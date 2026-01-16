@@ -80,6 +80,8 @@ func MigrateTables(db *gorm.DB) error {
 		&models.KnowledgeProvider{}, &models.KnowledgeTool{},
 		// n9e-2kai: 动态 Agent 架构表迁移
 		&models.AIAgent{}, &models.AITool{}, &models.AIAgentToolRel{},
+		// n9e-2kai: 自定义 LLM 模型配置表迁移
+		&models.AILLMModel{},
 		// n9e-2kai: 云服务管理模块表迁移
 		&models.CloudAccount{}, &models.CloudECS{}, &models.CloudRDS{}, &models.CloudSyncLog{}, &models.CloudSyncConfig{},
 		// n9e-2kai: 慢日志双表架构 - 明细表（可清理）+ 聚合报表（持久化）

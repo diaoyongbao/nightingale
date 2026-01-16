@@ -205,9 +205,9 @@ func (r *KnowledgeToolRegistry) getDefaultToolDescription(p *models.KnowledgePro
 	switch p.ProviderType {
 	case models.ProviderTypeCloudflareAutoRAG:
 		return `搜索内部知识库获取相关信息。
-重要：query 参数只填写用户问题中的核心关键词（1-3个词），不要添加任何额外词汇。`
+重要：query 参数必须填写用户的完整原始问题，不要提取关键词。`
 	case models.ProviderTypeCoze:
-		return `搜索知识库获取文档信息。query 参数只填写核心关键词。`
+		return `搜索知识库获取文档信息。query 参数填写用户的完整问题。`
 	default:
 		return "搜索知识库获取相关信息"
 	}
@@ -263,7 +263,7 @@ func (r *KnowledgeToolRegistry) GetToolDefinitions() []ToolDefinition {
 					"properties": map[string]interface{}{
 						"query": map[string]interface{}{
 							"type":        "string",
-							"description": "搜索查询关键词，从用户问题中提取核心内容",
+							"description": "用户的完整问题内容，不要进行关键词提取或删减",
 						},
 					},
 					"required": []string{"query"},
@@ -374,6 +374,7 @@ func FormatResultsForLLM(resp *QueryResponse) string {
 
 	// 否则拼接结果
 	var result string
+	result += "【系统提示：请基于以下内容回答，并原样保留其中的 Markdown 图片链接】\n\n"
 	for i, r := range resp.Results {
 		if i > 0 {
 			result += "\n\n---\n\n"

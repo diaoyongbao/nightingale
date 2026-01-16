@@ -777,24 +777,23 @@ func (h *Handler) buildSystemPrompt(clientCtx ClientContext) string {
 
 ## 工具使用原则
 
-### 知识库查询关键词提取规则
+### 知识库查询规则
 当调用知识库工具时，query 参数必须：
-- 只包含用户问题中的核心关键词（通常 1-3 个词）
-- 不要添加任何额外词汇（如"指南"、"教程"、"配置"、"最佳实践"）
-- 不要添加系统名称（如 Nightingale、夜莺）除非用户明确提到
-- 使用用户原话中的关键词，不要改写或扩展
+- **直接使用用户的完整原始问题**
+- 不要自行提取关键词或改写问题
+- 保持原句的完整性，以便知识库进行语义搜索
 
 正确示例：
-- 用户问"jumpserver地址是什么" → query: "jumpserver地址"
-- 用户问"K8s如何配置deployment" → query: "K8s deployment"
-- 用户问"数据库连接超时怎么办" → query: "数据库连接超时"
+- 用户问"jumpserver地址是什么" → query: "jumpserver地址是什么"
+- 用户问"K8s如何配置deployment" → query: "K8s如何配置deployment"
 
 错误示例（不要这样做）：
-- query: "K8s Deployment 配置 指南 Nightingale 运维" ❌
-- query: "jumpserver 地址 最佳实践 教程" ❌
+- query: "jumpserver 地址" (这是提取的关键词) ❌
+- query: "K8s deployment" (这是提取的关键词) ❌
 
 ## 回答原则
 - 如果知识库返回了相关结果，基于结果回答
+- **严禁修改知识库中返回的图片链接 (Markdown 格式)，必须原样保留**
 - 如果知识库没有相关信息，用你的知识直接回答用户问题
 - 禁止编造不存在的信息
 - 所有写操作必须二次确认

@@ -120,6 +120,15 @@ func (rt *Router) configAIAssistantRoutes(pages *gin.RouterGroup) {
 		aiAssistant.POST("/tools", rt.auth(), rt.admin(), rt.aiToolCreate)       // 创建 Tool
 		aiAssistant.PUT("/tools/:id", rt.auth(), rt.admin(), rt.aiToolUpdate)    // 更新 Tool
 		aiAssistant.DELETE("/tools/:id", rt.auth(), rt.admin(), rt.aiToolDelete) // 删除 Tool
+
+		// n9e-2kai: LLM 模型管理
+		aiAssistant.GET("/llm-models", rt.auth(), rt.aiLLMModelList)                       // 获取 LLM 模型列表（普通用户可查看）
+		aiAssistant.GET("/llm-models/:id", rt.auth(), rt.admin(), rt.aiLLMModelGet)        // 获取单个 LLM 模型
+		aiAssistant.POST("/llm-models", rt.auth(), rt.admin(), rt.aiLLMModelCreate)        // 创建 LLM 模型
+		aiAssistant.PUT("/llm-models/:id", rt.auth(), rt.admin(), rt.aiLLMModelUpdate)     // 更新 LLM 模型
+		aiAssistant.DELETE("/llm-models/:id", rt.auth(), rt.admin(), rt.aiLLMModelDelete)  // 删除 LLM 模型
+		aiAssistant.POST("/llm-models/:id/default", rt.auth(), rt.admin(), rt.aiLLMModelSetDefault) // 设置默认模型
+		aiAssistant.POST("/llm-models/:id/test", rt.auth(), rt.admin(), rt.aiLLMModelTest) // 测试模型连接
 	}
 }
 
@@ -155,18 +164,24 @@ func (rt *Router) aiAssistantHealth(c *gin.Context) {
 	}
 
 	// 检查 AI 服务配置
-	// n9e-2kai: 直接从数据库读取配置，不依赖延迟初始化的 aiConfigLoader
-	aiConfig, err := models.AIConfigGetByKey(rt.Ctx, models.AIConfigKeyDefaultModel)
-	if err == nil && aiConfig != nil && aiConfig.ConfigValue != "" {
-		// 解析配置检查 API Key 是否存在
-		var modelConfig config.AIModelConfig
-		if json.Unmarshal([]byte(aiConfig.ConfigValue), &modelConfig) == nil && modelConfig.APIKey != "" {
-			health["components"].(gin.H)["ai"] = "configured"
+	// n9e-2kai: 优先从 ai_llm_model 表检查配置
+	llmModel, err := models.AILLMModelGetDefault(rt.Ctx)
+	if err == nil && llmModel != nil && llmModel.APIKey != "" {
+		health["components"].(gin.H)["ai"] = "configured"
+	} else {
+		// 兼容旧配置：尝试从 ai_config 表获取配置
+		aiConfig, err := models.AIConfigGetByKey(rt.Ctx, models.AIConfigKeyDefaultModel)
+		if err == nil && aiConfig != nil && aiConfig.ConfigValue != "" {
+			// 解析配置检查 API Key 是否存在
+			var modelConfig config.AIModelConfig
+			if json.Unmarshal([]byte(aiConfig.ConfigValue), &modelConfig) == nil && modelConfig.APIKey != "" {
+				health["components"].(gin.H)["ai"] = "configured"
+			} else {
+				health["components"].(gin.H)["ai"] = "not_configured"
+			}
 		} else {
 			health["components"].(gin.H)["ai"] = "not_configured"
 		}
-	} else {
-		health["components"].(gin.H)["ai"] = "not_configured"
 	}
 
 	ginx.NewRender(c).Data(health, nil)
@@ -185,23 +200,47 @@ func (rt *Router) initAIAssistant() {
 
 	// 尝试初始化 AI 客户端
 	var aiClient ai.AIClient
-	modelConfig, err := aiConfigLoader.GetAIModelConfig(models.AIConfigKeyDefaultModel)
-	if err == nil && modelConfig != nil && modelConfig.APIKey != "" {
+
+	// n9e-2kai: 优先从 ai_llm_model 表获取默认模型配置
+	llmModel, err := models.AILLMModelGetDefault(rt.Ctx)
+	if err == nil && llmModel != nil && llmModel.APIKey != "" {
+		timeout := time.Duration(llmModel.Timeout) * time.Second
+		if timeout == 0 {
+			timeout = 60 * time.Second
+		}
 		client, err := ai.NewOpenAIClient(ai.OpenAIClientConfig{
-			Model:         modelConfig.Model,
-			APIKey:        modelConfig.APIKey,
-			BaseURL:       modelConfig.BaseURL,
-			Timeout:       60 * time.Second,
+			Model:         llmModel.ModelId,
+			APIKey:        llmModel.APIKey,
+			BaseURL:       llmModel.BaseURL,
+			Timeout:       timeout,
 			SkipSSLVerify: false,
 		})
 		if err == nil {
 			aiClient = client
-			logger.Infof("AI client initialized with model: %s", modelConfig.Model)
+			logger.Infof("AI client initialized with LLM model: %s (%s)", llmModel.Name, llmModel.ModelId)
 		} else {
-			logger.Warningf("Failed to create AI client: %v", err)
+			logger.Warningf("Failed to create AI client from LLM model: %v", err)
 		}
 	} else {
-		logger.Infof("AI model not configured, chat will return placeholder response")
+		// 兼容旧配置：尝试从 ai_config 表获取配置
+		modelConfig, err := aiConfigLoader.GetAIModelConfig(models.AIConfigKeyDefaultModel)
+		if err == nil && modelConfig != nil && modelConfig.APIKey != "" {
+			client, err := ai.NewOpenAIClient(ai.OpenAIClientConfig{
+				Model:         modelConfig.Model,
+				APIKey:        modelConfig.APIKey,
+				BaseURL:       modelConfig.BaseURL,
+				Timeout:       60 * time.Second,
+				SkipSSLVerify: false,
+			})
+			if err == nil {
+				aiClient = client
+				logger.Infof("AI client initialized with legacy config model: %s", modelConfig.Model)
+			} else {
+				logger.Warningf("Failed to create AI client: %v", err)
+			}
+		} else {
+			logger.Infof("AI model not configured, chat will return placeholder response")
+		}
 	}
 
 	// 初始化会话管理器（如果 Redis 可用）
@@ -1892,4 +1931,238 @@ func (rt *Router) aiToolDelete(c *gin.Context) {
 
 	err = tool.Delete(rt.Ctx)
 	ginx.NewRender(c).Data("ok", err)
+}
+
+// ===== LLM 模型管理 =====
+
+// aiLLMModelList 获取 LLM 模型列表
+func (rt *Router) aiLLMModelList(c *gin.Context) {
+	llmModels, err := models.AILLMModelGetEnabled(rt.Ctx)
+	if err != nil {
+		ginx.NewRender(c).Data(nil, err)
+		return
+	}
+
+	// 对于非管理员用户，隐藏 API Key
+	username := c.GetString("username")
+	user, _ := models.UserGetByUsername(rt.Ctx, username)
+	isAdmin := user != nil && user.IsAdmin()
+
+	if !isAdmin {
+		for i := range llmModels {
+			llmModels[i].APIKey = "******"
+		}
+	}
+
+	ginx.NewRender(c).Data(llmModels, nil)
+}
+
+// aiLLMModelGet 获取单个 LLM 模型
+func (rt *Router) aiLLMModelGet(c *gin.Context) {
+	id := ginx.UrlParamInt64(c, "id")
+
+	llmModel, err := models.AILLMModelGetById(rt.Ctx, id)
+	if err != nil {
+		ginx.NewRender(c).Data(nil, err)
+		return
+	}
+	if llmModel == nil {
+		ginx.NewRender(c).Data(nil, fmt.Errorf("LLM model not found"))
+		return
+	}
+
+	ginx.NewRender(c).Data(llmModel, nil)
+}
+
+// aiLLMModelCreate 创建 LLM 模型
+func (rt *Router) aiLLMModelCreate(c *gin.Context) {
+	var llmModel models.AILLMModel
+	if err := c.ShouldBindJSON(&llmModel); err != nil {
+		ginx.NewRender(c).Data(nil, err)
+		return
+	}
+
+	// 验证必要字段
+	if llmModel.Name == "" {
+		ginx.NewRender(c).Data(nil, fmt.Errorf("model name is required"))
+		return
+	}
+	if llmModel.ModelId == "" {
+		ginx.NewRender(c).Data(nil, fmt.Errorf("model_id is required"))
+		return
+	}
+	if llmModel.APIKey == "" {
+		ginx.NewRender(c).Data(nil, fmt.Errorf("api_key is required"))
+		return
+	}
+	if llmModel.BaseURL == "" {
+		ginx.NewRender(c).Data(nil, fmt.Errorf("base_url is required"))
+		return
+	}
+
+	// 检查名称唯一性
+	existing, _ := models.AILLMModelGetByName(rt.Ctx, llmModel.Name)
+	if existing != nil {
+		ginx.NewRender(c).Data(nil, fmt.Errorf("model name already exists: %s", llmModel.Name))
+		return
+	}
+
+	llmModel.CreateBy = c.GetString("username")
+	llmModel.UpdateBy = c.GetString("username")
+
+	err := llmModel.Create(rt.Ctx)
+	ginx.NewRender(c).Data(llmModel.Id, err)
+}
+
+// aiLLMModelUpdate 更新 LLM 模型
+func (rt *Router) aiLLMModelUpdate(c *gin.Context) {
+	id := ginx.UrlParamInt64(c, "id")
+
+	llmModel, err := models.AILLMModelGetById(rt.Ctx, id)
+	if err != nil {
+		ginx.NewRender(c).Data(nil, err)
+		return
+	}
+	if llmModel == nil {
+		ginx.NewRender(c).Data(nil, fmt.Errorf("LLM model not found"))
+		return
+	}
+
+	var updates map[string]interface{}
+	if err := c.ShouldBindJSON(&updates); err != nil {
+		ginx.NewRender(c).Data(nil, err)
+		return
+	}
+
+	// 如果更新名称，检查唯一性
+	if name, ok := updates["name"].(string); ok && name != llmModel.Name {
+		existing, _ := models.AILLMModelGetByName(rt.Ctx, name)
+		if existing != nil {
+			ginx.NewRender(c).Data(nil, fmt.Errorf("model name already exists: %s", name))
+			return
+		}
+	}
+
+	updates["update_by"] = c.GetString("username")
+	err = llmModel.Update(rt.Ctx, updates)
+
+	// 如果更新了模型配置，重置 AI 助手初始化状态
+	aiInitialized = false
+	aiChatHandler = nil
+
+	ginx.NewRender(c).Data("ok", err)
+}
+
+// aiLLMModelDelete 删除 LLM 模型
+func (rt *Router) aiLLMModelDelete(c *gin.Context) {
+	id := ginx.UrlParamInt64(c, "id")
+
+	llmModel, err := models.AILLMModelGetById(rt.Ctx, id)
+	if err != nil {
+		ginx.NewRender(c).Data(nil, err)
+		return
+	}
+	if llmModel == nil {
+		ginx.NewRender(c).Data(nil, fmt.Errorf("LLM model not found"))
+		return
+	}
+
+	err = llmModel.Delete(rt.Ctx)
+
+	// 重置 AI 助手初始化状态
+	aiInitialized = false
+	aiChatHandler = nil
+
+	ginx.NewRender(c).Data("ok", err)
+}
+
+// aiLLMModelSetDefault 设置默认 LLM 模型
+func (rt *Router) aiLLMModelSetDefault(c *gin.Context) {
+	id := ginx.UrlParamInt64(c, "id")
+
+	llmModel, err := models.AILLMModelGetById(rt.Ctx, id)
+	if err != nil {
+		ginx.NewRender(c).Data(nil, err)
+		return
+	}
+	if llmModel == nil {
+		ginx.NewRender(c).Data(nil, fmt.Errorf("LLM model not found"))
+		return
+	}
+
+	username := c.GetString("username")
+	err = llmModel.SetAsDefault(rt.Ctx, username)
+
+	// 重置 AI 助手初始化状态
+	aiInitialized = false
+	aiChatHandler = nil
+
+	ginx.NewRender(c).Data("ok", err)
+}
+
+// aiLLMModelTest 测试 LLM 模型连接
+func (rt *Router) aiLLMModelTest(c *gin.Context) {
+	id := ginx.UrlParamInt64(c, "id")
+
+	llmModel, err := models.AILLMModelGetById(rt.Ctx, id)
+	if err != nil {
+		ginx.NewRender(c).Data(nil, err)
+		return
+	}
+	if llmModel == nil {
+		ginx.NewRender(c).Data(nil, fmt.Errorf("LLM model not found"))
+		return
+	}
+
+	// 创建临时 AI 客户端进行测试
+	aiClient, err := ai.NewOpenAIClient(ai.OpenAIClientConfig{
+		Model:   llmModel.ModelId,
+		APIKey:  llmModel.APIKey,
+		BaseURL: llmModel.BaseURL,
+		Timeout: time.Duration(30) * time.Second,
+	})
+	if err != nil {
+		ginx.NewRender(c).Data(gin.H{
+			"status":  "error",
+			"message": fmt.Sprintf("创建 AI 客户端失败: %v", err),
+		}, nil)
+		return
+	}
+
+	// 发送测试请求
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	testMessage := "Hello, this is a connection test. Please respond with 'OK'."
+	response, err := aiClient.ChatCompletion(ctx, &ai.ChatCompletionRequest{
+		Model: llmModel.ModelId,
+		Messages: []ai.Message{
+			{Role: "user", Content: testMessage},
+		},
+		MaxTokens:   100,
+		Temperature: 0.1,
+	})
+
+	if err != nil {
+		ginx.NewRender(c).Data(gin.H{
+			"status":  "error",
+			"message": fmt.Sprintf("连接测试失败: %v", err),
+		}, nil)
+		return
+	}
+
+	// 提取响应内容
+	responseContent := ""
+	if len(response.Choices) > 0 {
+		if content, ok := response.Choices[0].Message.Content.(string); ok {
+			responseContent = content
+		}
+	}
+
+	ginx.NewRender(c).Data(gin.H{
+		"status":   "success",
+		"message":  "连接测试成功",
+		"response": responseContent,
+		"model":    llmModel.ModelId,
+	}, nil)
 }

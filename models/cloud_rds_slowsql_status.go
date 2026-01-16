@@ -14,14 +14,12 @@ import (
 // SlowSQLPriorityHigh, SlowSQLPriorityMedium, SlowSQLPriorityLow
 
 // CloudRDSSlowSQLStatus 慢SQL优化跟踪状态表（关联表）
+// 注意：owner 等信息应从cloudRDSOwner表通过 instance_id 动态获取
 type CloudRDSSlowSQLStatus struct {
 	Id              int64  `json:"id" gorm:"primaryKey;autoIncrement"`
 	SqlHash         string `json:"sql_hash" gorm:"type:varchar(32);uniqueIndex;not null"` // 关联 cloud_rds_slowlog_report.sql_hash
 	Status          string `json:"status" gorm:"type:varchar(32);index;default:'pending'"`
 	Priority        string `json:"priority" gorm:"type:varchar(16);index;default:'medium'"`
-	Owner           string `json:"owner" gorm:"type:varchar(64)"`
-	OwnerEmail      string `json:"owner_email" gorm:"type:varchar(128)"`
-	Team            string `json:"team" gorm:"type:varchar(128)"`
 	OptimizeNote    string `json:"optimize_note" gorm:"type:text"`
 	OptimizeResult  string `json:"optimize_result" gorm:"type:text"`
 	StatusChangedAt int64  `json:"status_changed_at"`
@@ -70,7 +68,9 @@ func CloudRDSSlowSQLStatusGetBySqlHash(c *ctx.Context, sqlHash string) (*CloudRD
 	return &status, nil
 }
 
-func CloudRDSSlowSQLStatusUpsert(c *ctx.Context, sqlHash, statusVal, priority, owner, operator string) error {
+// CloudRDSSlowSQLStatusUpsert 创建或更新状态记录
+// 注意：owner 信息应从 cloud_rds_owner 表获取，不在此表存储
+func CloudRDSSlowSQLStatusUpsert(c *ctx.Context, sqlHash, statusVal, priority, operator string) error {
 	existing, err := CloudRDSSlowSQLStatusGetBySqlHash(c, sqlHash)
 	if err != nil {
 		return err
@@ -84,7 +84,6 @@ func CloudRDSSlowSQLStatusUpsert(c *ctx.Context, sqlHash, statusVal, priority, o
 			SqlHash:         sqlHash,
 			Status:          statusVal,
 			Priority:        priority,
-			Owner:           owner,
 			StatusChangedAt: now,
 			StatusChangedBy: operator,
 			CreatedAt:       now,
@@ -110,9 +109,6 @@ func CloudRDSSlowSQLStatusUpsert(c *ctx.Context, sqlHash, statusVal, priority, o
 	}
 	if priority != "" {
 		updates["priority"] = priority
-	}
-	if owner != "" {
-		updates["owner"] = owner
 	}
 
 	return DB(c).Model(&CloudRDSSlowSQLStatus{}).Where("id = ?", existing.Id).Updates(updates).Error
@@ -180,15 +176,6 @@ func CloudRDSSlowSQLStatusUpdate(c *ctx.Context, sqlHash string, updates map[str
 		if v, ok := updates["priority"].(string); ok {
 			status.Priority = v
 		}
-		if v, ok := updates["owner"].(string); ok {
-			status.Owner = v
-		}
-		if v, ok := updates["owner_email"].(string); ok {
-			status.OwnerEmail = v
-		}
-		if v, ok := updates["team"].(string); ok {
-			status.Team = v
-		}
 		if v, ok := updates["optimize_note"].(string); ok {
 			status.OptimizeNote = v
 		}
@@ -226,15 +213,16 @@ type SlowSQLWithStatus struct {
 	// 来自 cloud_rds_slowsql_status（LEFT JOIN）
 	Status          string  `json:"status"`
 	Priority        string  `json:"priority"`
-	Owner           string  `json:"owner"`
-	OwnerEmail      string  `json:"owner_email"`
-	Team            string  `json:"team"`
 	OptimizeNote    string  `json:"optimize_note"`
 	OptimizeResult  string  `json:"optimize_result"`
 	StatusChangedAt int64   `json:"status_changed_at"`
 	Confidence      float64 `json:"confidence"`      // n9e-2kai: 优化判定置信度
 	AvgFrequency    float64 `json:"avg_frequency"`   // n9e-2kai: 日均频率
 	ObservingSince  int64   `json:"observing_since"` // n9e-2kai: 进入观察期时间
+	// 来自 cloud_rds_owner（LEFT JOIN，通过 instance_id 关联）
+	Owner      string `json:"owner"`
+	OwnerEmail string `json:"owner_email"`
+	Team       string `json:"team"`
 }
 
 // CloudRDSSlowSQLWithStatusGets 获取带跟踪状态的慢SQL列表
@@ -242,7 +230,7 @@ func CloudRDSSlowSQLWithStatusGets(c *ctx.Context, instanceId, status, priority,
 	var list []SlowSQLWithStatus
 	var total int64
 
-	// 基础查询：从 report 表 LEFT JOIN status 表
+	// 基础查询：从 report 表 LEFT JOIN status 表 和 owner 表
 	baseQuery := `
 		SELECT 
 			r.id, r.instance_id, r.instance_name, r.sql_hash, r.sql_fingerprint, 
@@ -251,17 +239,18 @@ func CloudRDSSlowSQLWithStatusGets(c *ctx.Context, instanceId, status, priority,
 			r.period_type, r.period_start,
 			COALESCE(s.status, 'pending') as status,
 			COALESCE(s.priority, 'medium') as priority,
-			COALESCE(s.owner, '') as owner,
-			COALESCE(s.owner_email, '') as owner_email,
-			COALESCE(s.team, '') as team,
 			COALESCE(s.optimize_note, '') as optimize_note,
 			COALESCE(s.optimize_result, '') as optimize_result,
 			COALESCE(s.status_changed_at, 0) as status_changed_at,
 			COALESCE(s.confidence, 0) as confidence,
 			COALESCE(s.avg_frequency, 0) as avg_frequency,
-			COALESCE(s.observing_since, 0) as observing_since
+			COALESCE(s.observing_since, 0) as observing_since,
+			COALESCE(o.owner, '') as owner,
+			COALESCE(o.owner_email, '') as owner_email,
+			COALESCE(o.team, '') as team
 		FROM cloud_rds_slowlog_report r
 		LEFT JOIN cloud_rds_slowsql_status s ON r.sql_hash = s.sql_hash
+		LEFT JOIN cloud_rds_owner o ON r.instance_id = o.instance_id
 		WHERE r.period_type = 'day'
 	`
 
@@ -269,6 +258,7 @@ func CloudRDSSlowSQLWithStatusGets(c *ctx.Context, instanceId, status, priority,
 		SELECT COUNT(DISTINCT r.sql_hash)
 		FROM cloud_rds_slowlog_report r
 		LEFT JOIN cloud_rds_slowsql_status s ON r.sql_hash = s.sql_hash
+		LEFT JOIN cloud_rds_owner o ON r.instance_id = o.instance_id
 		WHERE r.period_type = 'day'
 	`
 
