@@ -310,6 +310,14 @@ ops:
       cname: AI Assistant - Chat
     - name: /ai-assistant/config
       cname: AI Assistant - Config
+    - name: /cloud-manager
+      cname: Cloud Manager - View
+    - name: /cloud-manager/create
+      cname: Cloud Manager - Create
+    - name: /cloud-manager/edit
+      cname: Cloud Manager - Edit
+    - name: /cloud-manager/delete
+      cname: Cloud Manager - Delete
 
 `
 )
