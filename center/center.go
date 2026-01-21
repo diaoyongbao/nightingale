@@ -38,6 +38,7 @@ import (
 	pushgwrt "github.com/ccfos/nightingale/v6/pushgw/router"
 	"github.com/ccfos/nightingale/v6/pushgw/writer"
 	"github.com/ccfos/nightingale/v6/storage"
+	"github.com/ccfos/nightingale/v6/extensions/registry"
 	"github.com/flashcatcloud/ibex/src/cmd/ibex"
 )
 
@@ -144,10 +145,18 @@ func Initialize(configDir string, cryptoKey string) (func(), error) {
 
 	r := httpx.GinEngine(config.Global.RunMode, config.HTTP, configCvalCache.PrintBodyPaths, configCvalCache.PrintAccessLog)
 
+	// 初始化扩展
+	if err := registry.InitAll(ctx); err != nil {
+		return nil, fmt.Errorf("failed to init extensions: %v", err)
+	}
+
 	centerRouter.Config(r)
 	alertrtRouter.Config(r)
 	pushgwRouter.Config(r)
 	dumper.ConfigRouter(r)
+
+	// 注册扩展路由
+	registry.RegisterAllRoutes(r)
 
 	if config.Ibex.Enable {
 		migrate.MigrateIbexTables(db)

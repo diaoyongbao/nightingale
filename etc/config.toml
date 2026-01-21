@@ -120,6 +120,7 @@ EngineName = "default"
 [Center]
 MetricsYamlFile = "./etc/metrics.yaml"
 I18NHeaderKey = "X-Language"
+UseFileAssets = true
 
 [Center.AnonymousAccess]
 PromQuerier = true

@@ -301,5 +301,15 @@ ops:
     - name: /system/version
       cname: View Product Version
 
+- name: Extensions
+  cname: Extensions
+  ops:
+    - name: /ai-assistant
+      cname: AI Assistant - View
+    - name: /ai-assistant/chat
+      cname: AI Assistant - Chat
+    - name: /ai-assistant/config
+      cname: AI Assistant - Config
+
 `
 )
